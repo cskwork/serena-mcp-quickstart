@@ -2,7 +2,11 @@
 
 This directory holds visuals referenced by the top-level `README.md`.
 
-## hero.png — generation prompt
+## hero.svg — current banner
+
+A lightweight SVG placeholder lives at `hero.svg`. It renders crisply on GitHub at any DPI and is the file referenced by `README.md`. Replace with a polished raster image any time — see the prompt below.
+
+## hero.png — generation prompt (optional upgrade)
 
 The README banner. 1280x320, light background, flat illustration style. Generate with any image model (the Codex CLI's `image` command works well; so does ChatGPT / Imagen / Stable Diffusion).
 

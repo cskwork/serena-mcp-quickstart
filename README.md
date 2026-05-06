@@ -1,7 +1,7 @@
 # serena-mcp-quickstart
 
 <p align="center">
-  <img src="assets/hero.png" alt="serena-mcp-quickstart — uvx serena, batteries included" width="100%" />
+  <img src="assets/hero.svg" alt="serena-mcp-quickstart — uvx serena, batteries included" width="100%" />
 </p>
 
 > One-shot installer that wires [Serena](https://github.com/oraios/serena) — the LSP-powered semantic code MCP server — into any Claude Code project in **under 30 seconds**.

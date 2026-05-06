@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="serena-mcp-quickstart — uvx serena, batteries included">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fafafa"/>
+      <stop offset="100%" stop-color="#f0f0f5"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0 L0 0 0 32" fill="none" stroke="#e8e8ee" stroke-width="1"/>
+    </pattern>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+
+  <!-- terminal window -->
+  <g transform="translate(420 80)">
+    <rect x="0" y="0" width="440" height="160" rx="14" fill="#1e1e2a" filter="url(#soft)" opacity="0.25"/>
+    <rect x="0" y="0" width="440" height="160" rx="14" fill="#1e1e2a"/>
+    <!-- traffic lights -->
+    <circle cx="22" cy="22" r="6" fill="#ff5f57"/>
+    <circle cx="42" cy="22" r="6" fill="#febc2e"/>
+    <circle cx="62" cy="22" r="6" fill="#28c840"/>
+    <!-- prompt + command -->
+    <text x="24" y="80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#7c8baf">$</text>
+    <text x="48" y="80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#e6e6f0">uvx serena</text>
+    <text x="24" y="116" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" fill="#67d391">[1/5] checking prerequisites...</text>
+    <text x="24" y="138" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" fill="#67d391">[2/5] installing skill...</text>
+  </g>
+
+  <!-- connecting lines -->
+  <g stroke="#8b7ed1" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55">
+    <path d="M180 130 Q300 130 420 160"/>
+    <path d="M180 220 Q300 220 420 200"/>
+    <path d="M1100 130 Q980 130 860 160"/>
+    <path d="M1100 220 Q980 220 860 200"/>
+    <path d="M640 60  L640 80"/>
+    <path d="M640 240 L640 260"/>
+  </g>
+
+  <!-- language pills (left) -->
+  <g font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="18" font-weight="600" text-anchor="middle">
+    <g transform="translate(120 110)">
+      <rect x="-50" y="-22" width="100" height="44" rx="22" fill="#fff" stroke="#d6c1ff" stroke-width="1.5"/>
+      <text y="6" fill="#5b3bb1">Java</text>
+    </g>
+    <g transform="translate(120 200)">
+      <rect x="-50" y="-22" width="100" height="44" rx="22" fill="#fff" stroke="#a8e6c9" stroke-width="1.5"/>
+      <text y="6" fill="#1f8b56">Vue</text>
+    </g>
+  </g>
+
+  <!-- language pills (right) -->
+  <g font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="18" font-weight="600" text-anchor="middle">
+    <g transform="translate(1160 110)">
+      <rect x="-58" y="-22" width="116" height="44" rx="22" fill="#fff" stroke="#bcd4ff" stroke-width="1.5"/>
+      <text y="6" fill="#2454c2">TypeScript</text>
+    </g>
+    <g transform="translate(1160 200)">
+      <rect x="-50" y="-22" width="100" height="44" rx="22" fill="#fff" stroke="#ffd9a8" stroke-width="1.5"/>
+      <text y="6" fill="#a35d10">Python</text>
+    </g>
+  </g>
+
+  <!-- center top + bottom -->
+  <g font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="18" font-weight="600" text-anchor="middle">
+    <g transform="translate(640 38)">
+      <rect x="-44" y="-22" width="88" height="44" rx="22" fill="#fff" stroke="#ffc1c1" stroke-width="1.5"/>
+      <text y="6" fill="#b53030">HTML</text>
+    </g>
+  </g>
+
+  <!-- title -->
+  <g transform="translate(40 282)">
+    <text font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="22" font-weight="700" fill="#2a2540">serena-mcp-quickstart</text>
+    <text x="270" font-family="ui-sans-serif, -apple-system, Segoe UI, Roboto, sans-serif" font-size="16" fill="#5e5a78">LSP-powered semantic code MCP for Claude Code · 30s install</text>
+  </g>
+</svg>

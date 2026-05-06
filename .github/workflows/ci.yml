@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck install.sh
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: warning
+
+      - name: validate JSON templates
+        run: |
+          for f in skill/templates/*.json; do
+            python3 -c "import json,sys; json.load(open('$f'))"
+            echo "ok: $f"
+          done
+
+      - name: validate YAML templates
+        run: |
+          python3 -m pip install --quiet pyyaml
+          for f in skill/templates/*.yml; do
+            python3 -c "import yaml,sys; yaml.safe_load(open('$f'))"
+            echo "ok: $f"
+          done
+
+      - name: SKILL.md frontmatter present
+        run: |
+          head -1 skill/SKILL.md | grep -q '^---$'
+          grep -q '^name: ' skill/SKILL.md
+          grep -q '^description: ' skill/SKILL.md
+
+  smoke-install:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install via local script
+        run: |
+          mkdir -p /tmp/fakeproject
+          cd /tmp/fakeproject
+          bash "${GITHUB_WORKSPACE}/install.sh" --project-dir /tmp/fakeproject
+
+      - name: assert artifacts exist
+        run: |
+          test -f "${HOME}/.claude/skills/serena-mcp-quickstart/SKILL.md"
+          test -f "/tmp/fakeproject/.mcp.json"
+          test -f "/tmp/fakeproject/.serena/project.yml"
+          grep -q '"serena"' /tmp/fakeproject/.mcp.json
+          grep -q 'project_name: "fakeproject"' /tmp/fakeproject/.serena/project.yml
+          grep -q '^  - typescript$' /tmp/fakeproject/.serena/project.yml

@@ -205,6 +205,11 @@ case "${WITH_CODEX}" in
 esac
 echo "  3. Tweak .serena/project.yml — uncomment opt-in languages as needed."
 echo ""
-[[ "${WITH_CODEX}" != "only" ]] && echo "Skill installed at: ${SKILL_DIR}"
-[[ "${WITH_CODEX}" != "only" ]] && [[ -n "${MCP_FILE:-}" ]] && echo "Claude MCP config:  ${MCP_FILE}"
-[[ "${WITH_CODEX}" != "no"   ]] && echo "Codex MCP config:   ${HOME}/.codex/config.toml"
+if [[ "${WITH_CODEX}" != "only" ]]; then
+  echo "Skill installed at: ${SKILL_DIR}"
+  [[ -n "${MCP_FILE:-}" ]] && echo "Claude MCP config:  ${MCP_FILE}"
+fi
+if [[ "${WITH_CODEX}" != "no" ]]; then
+  echo "Codex MCP config:   ${HOME}/.codex/config.toml"
+fi
+exit 0

@@ -42,8 +42,9 @@ Run from your project root. The installer will:
    - `--codex-only` → only the Codex registration
 4. Generate `.serena/project.yml` pre-filled with the 5-language preset.
 5. Append a `## Tooling` section to your project's `CLAUDE.md` and/or `AGENTS.md` so future agents prefer Serena over grep. With `--codex` / `--codex-only`, also appends to your global `~/.codex/AGENTS.md`.
+6. **Auto-allow the 32 `mcp__serena__*` tools in `~/.claude/settings.json`** so Claude Code never prompts you for permission on first call. Skipped with `--codex-only` or `--no-permissions`.
 
-Idempotent — safe to re-run. Existing configs are merged, never overwritten. Existing Tooling blocks are detected via `<!-- BEGIN serena-mcp-quickstart -->` markers and skipped.
+Idempotent — safe to re-run. Existing configs are merged, never overwritten. Existing Tooling blocks are detected via `<!-- BEGIN serena-mcp-quickstart -->` markers and skipped. Permissions allowlist entries are deduplicated.
 
 ### Option B — copy-paste prompt (zero CLI required)
 

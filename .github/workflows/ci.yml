@@ -58,11 +58,44 @@ jobs:
           grep -q 'project_name: "fakeproject"' /tmp/fakeproject/.serena/project.yml
           grep -q '^  - typescript$' /tmp/fakeproject/.serena/project.yml
 
+      - name: assert Serena permissions added to settings.json
+        run: |
+          test -f "${HOME}/.claude/settings.json"
+          python3 -c "
+          import json
+          s = json.load(open('${HOME}/.claude/settings.json'))
+          allow = s.get('permissions', {}).get('allow', [])
+          serena = [e for e in allow if e.startswith('mcp__serena__')]
+          assert len(serena) == 32, f'expected 32 serena entries, got {len(serena)}'
+          assert 'mcp__serena__find_symbol' in serena
+          assert 'mcp__serena__replace_symbol_body' in serena
+          print(f'ok: {len(serena)} mcp__serena__* permissions registered')
+          "
+
       - name: re-run is idempotent
         run: |
           bash "${GITHUB_WORKSPACE}/install.sh" --project-dir /tmp/fakeproject
           # If a second run mutated project.yml, the warn log would show; just re-assert.
           grep -q 'project_name: "fakeproject"' /tmp/fakeproject/.serena/project.yml
+          # Permissions list must not double up
+          python3 -c "
+          import json
+          s = json.load(open('${HOME}/.claude/settings.json'))
+          allow = s.get('permissions', {}).get('allow', [])
+          serena = [e for e in allow if e.startswith('mcp__serena__')]
+          assert len(serena) == 32, f'idempotency failed: got {len(serena)} (expected 32)'
+          print('ok: idempotent permissions allowlist')
+          "
+
+      - name: --no-permissions skips settings.json modification
+        run: |
+          rm -f "${HOME}/.claude/settings.json"
+          mkdir -p /tmp/nopermsproject
+          bash "${GITHUB_WORKSPACE}/install.sh" --project-dir /tmp/nopermsproject --no-permissions
+          # settings.json must not contain any mcp__serena__ entries (file may not exist)
+          if [ -f "${HOME}/.claude/settings.json" ]; then
+            ! grep -q "mcp__serena__" "${HOME}/.claude/settings.json"
+          fi
 
       - name: --codex-only does not create Claude artifacts
         run: |

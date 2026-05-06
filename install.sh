@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # serena-mcp-quickstart — one-shot installer
 # Usage:   curl -fsSL https://raw.githubusercontent.com/<user>/serena-mcp-quickstart/main/install.sh | bash
-#   or:    bash install.sh [--project-dir /path/to/repo] [--global] [--codex] [--codex-only]
+#   or:    bash install.sh [--project-dir /path/to/repo] [--global] [--codex] [--codex-only] [--no-permissions]
 #
 # What it does:
 #   1. Verifies prerequisites (uvx).
@@ -12,6 +12,8 @@
 #        - --codex-only:   ONLY registers in ~/.codex/config.toml (skips Claude Code paths)
 #   4. Generates .serena/project.yml from the bundled template (default 5-language preset).
 #   5. Appends a Tooling block to CLAUDE.md / AGENTS.md as appropriate.
+#   6. Adds the 32 mcp__serena__* tools to ~/.claude/settings.json permissions.allow
+#      so Claude Code never prompts for them. Skipped with --codex-only or --no-permissions.
 
 set -euo pipefail
 
@@ -22,15 +24,17 @@ SKILL_DIR="${HOME}/.claude/skills/${SKILL_NAME}"
 PROJECT_DIR="$(pwd)"
 SCOPE="project"      # project | global   (Claude Code MCP scope)
 WITH_CODEX="no"      # no | yes | only
+WITH_PERMS="yes"     # yes | no  (auto-add Serena tools to settings.json allowlist)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project-dir) PROJECT_DIR="$2"; shift 2 ;;
-    --global)      SCOPE="global"; shift ;;
-    --codex)       WITH_CODEX="yes"; shift ;;
-    --codex-only)  WITH_CODEX="only"; shift ;;
+    --project-dir)    PROJECT_DIR="$2"; shift 2 ;;
+    --global)         SCOPE="global"; shift ;;
+    --codex)          WITH_CODEX="yes"; shift ;;
+    --codex-only)     WITH_CODEX="only"; shift ;;
+    --no-permissions) WITH_PERMS="no"; shift ;;
     -h|--help)
-      sed -n '2,15p' "$0"
+      sed -n '2,17p' "$0"
       exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
@@ -41,7 +45,7 @@ info() { printf '  %s\n' "$*"; }
 warn() { printf '\033[33m  warn: %s\033[0m\n' "$*"; }
 fail() { printf '\033[31m  error: %s\033[0m\n' "$*" >&2; exit 1; }
 
-bold "[1/5] checking prerequisites"
+bold "[1/6] checking prerequisites"
 if ! command -v uvx >/dev/null 2>&1; then
   warn "uvx not found — installing uv (https://astral.sh/uv)"
   curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -52,7 +56,7 @@ if ! command -v uvx >/dev/null 2>&1; then
 fi
 info "uvx: $(command -v uvx)"
 
-bold "[2/5] installing skill into ${SKILL_DIR}"
+bold "[2/6] installing skill into ${SKILL_DIR}"
 if [[ "${WITH_CODEX}" == "only" ]]; then
   info "skipped (--codex-only — Claude Code skill not installed)"
 else
@@ -71,7 +75,7 @@ else
   fi
 fi
 
-bold "[3/5] registering Serena MCP server"
+bold "[3/6] registering Serena MCP server"
 
 # --- Claude Code path (skipped when --codex-only) -----------------------------
 if [[ "${WITH_CODEX}" != "only" ]]; then
@@ -128,7 +132,7 @@ if [[ "${WITH_CODEX}" != "no" ]]; then
   fi
 fi
 
-bold "[4/5] generating .serena/project.yml"
+bold "[4/6] generating .serena/project.yml"
 SERENA_DIR="${PROJECT_DIR}/.serena"
 mkdir -p "${SERENA_DIR}"
 if [[ -f "${SERENA_DIR}/project.yml" ]]; then
@@ -140,7 +144,7 @@ else
   info "wrote ${SERENA_DIR}/project.yml (project_name=${PROJECT_NAME})"
 fi
 
-bold "[5/5] appending Tooling section to agent context file(s)"
+bold "[5/6] appending Tooling section to agent context file(s)"
 TOOLING_BLOCK=$(cat <<'EOF'
 
 <!-- BEGIN serena-mcp-quickstart -->
@@ -184,6 +188,48 @@ fi
 if [[ "${WITH_CODEX}" != "no" ]] && [[ -e "${HOME}/.codex/AGENTS.md" ]]; then
   GLOBAL_AGENTS="$(readlink "${HOME}/.codex/AGENTS.md" 2>/dev/null || echo "${HOME}/.codex/AGENTS.md")"
   [[ -f "${GLOBAL_AGENTS}" ]] && append_tooling "${GLOBAL_AGENTS}"
+fi
+
+bold "[6/6] granting Serena tool permissions in Claude Code settings"
+SETTINGS_FILE="${HOME}/.claude/settings.json"
+if [[ "${WITH_CODEX}" == "only" ]]; then
+  info "skipped (--codex-only — Claude Code settings not modified)"
+elif [[ "${WITH_PERMS}" == "no" ]]; then
+  info "skipped (--no-permissions)"
+else
+  mkdir -p "$(dirname "${SETTINGS_FILE}")"
+  python3 - "${SETTINGS_FILE}" <<'PY'
+import json, os, sys
+target = sys.argv[1]
+serena_tools = [
+    "find_symbol", "find_referencing_symbols", "get_symbols_overview",
+    "search_for_pattern", "list_dir", "find_file", "read_file",
+    "replace_symbol_body", "insert_after_symbol", "insert_before_symbol",
+    "create_text_file", "delete_lines", "replace_lines", "insert_at_line",
+    "write_memory", "read_memory", "list_memories", "delete_memory",
+    "check_onboarding_performed", "onboarding",
+    "get_current_config", "think_about_collected_information",
+    "think_about_task_adherence", "think_about_whether_you_are_done",
+    "summarize_changes", "prepare_for_new_conversation",
+    "restart_language_server", "execute_shell_command",
+    "activate_project", "remove_project", "switch_modes", "get_active_project",
+]
+entries = [f"mcp__serena__{t}" for t in serena_tools]
+
+settings = json.load(open(target)) if os.path.exists(target) else {}
+perms = settings.setdefault("permissions", {})
+allow = perms.setdefault("allow", [])
+existing = set(allow)
+added = [e for e in entries if e not in existing]
+allow.extend(added)
+
+if added:
+    json.dump(settings, open(target, "w"), indent=2)
+    print(f"added {len(added)} mcp__serena__* entries to {target}")
+else:
+    print(f"all {len(entries)} mcp__serena__* entries already present — skipping")
+PY
+  info "permissions allowlist updated"
 fi
 
 bold ""

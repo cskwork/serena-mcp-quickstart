@@ -179,8 +179,9 @@ mcp__serena__activate_project  with  project = "<absolute path to repo root>"
 ## What This Skill Does NOT Do
 
 - It does not auto-update Serena. Re-run `uvx` to pull latest from `git+...`.
-- It does not edit `~/.claude/settings.json` permission allowlist. The user must approve `mcp__serena__*` tools the first time they fire, or add them manually.
 - It does not run `serena onboarding` (Serena's own ingest). Suggest that step to the user once MCP is reachable.
+
+> **Note:** The bundled `install.sh` (run from CLI) **does** auto-grant the 32 `mcp__serena__*` tools in `~/.claude/settings.json` so Claude Code never prompts. If a user is invoking this skill via prompt-only flow (no shell access), explicitly tell them the first call to each Serena tool will trigger a one-time permission prompt — which they can pre-empt by running `install.sh` once.
 
 ## References
 

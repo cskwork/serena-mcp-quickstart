@@ -14,50 +14,70 @@ Default preset enables LSPs for **Java · Vue · TypeScript (covers JS/React/TSX
 
 ### Option A — bash one-liner (fastest)
 
+**Claude Code** (default):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cskwork/serena-mcp-quickstart/main/install.sh | bash
 ```
 
-Run this from your project root. It will:
+**Codex CLI** (also registers in `~/.codex/config.toml`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cskwork/serena-mcp-quickstart/main/install.sh | bash -s -- --codex
+```
+
+**Codex CLI only** (skip Claude Code paths entirely):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cskwork/serena-mcp-quickstart/main/install.sh | bash -s -- --codex-only
+```
+
+Run from your project root. The installer will:
 
 1. Install [`uv`](https://astral.sh/uv) if missing.
-2. Drop the Skill into `~/.claude/skills/serena-mcp-quickstart/`.
-3. Merge the Serena MCP server into your project's `.mcp.json` (or `~/.claude/mcp.json` with `--global`).
+2. Drop the Skill into `~/.claude/skills/serena-mcp-quickstart/` (skipped with `--codex-only`).
+3. Register the Serena MCP server:
+   - default → `.mcp.json` (project) or `~/.claude/mcp.json` (with `--global`)
+   - `--codex` → also runs `codex mcp add serena ...` to register in `~/.codex/config.toml`
+   - `--codex-only` → only the Codex registration
 4. Generate `.serena/project.yml` pre-filled with the 5-language preset.
-5. Append a `## Tooling` section to your project's `CLAUDE.md` and/or `AGENTS.md` so future agents prefer Serena over grep.
+5. Append a `## Tooling` section to your project's `CLAUDE.md` and/or `AGENTS.md` so future agents prefer Serena over grep. With `--codex` / `--codex-only`, also appends to your global `~/.codex/AGENTS.md`.
 
-Idempotent — safe to re-run. Existing configs are merged, never overwritten.
+Idempotent — safe to re-run. Existing configs are merged, never overwritten. Existing Tooling blocks are detected via `<!-- BEGIN serena-mcp-quickstart -->` markers and skipped.
 
 ### Option B — copy-paste prompt (zero CLI required)
 
-Paste the block below into Claude Code. The skill takes care of the rest:
+Paste the block below into your CLI of choice (Claude Code, Codex, Gemini CLI). The agent figures out which host it's running on and registers Serena in the right place.
 
 ```
 Install Serena MCP for this project using https://github.com/cskwork/serena-mcp-quickstart.
 
 Steps:
 1. Verify uvx is installed; if not, install uv via the official script.
-2. Add the Serena MCP server to .mcp.json:
-   {"mcpServers":{"serena":{"command":"uvx","args":["--from","git+https://github.com/oraios/serena","serena","start-mcp-server"]}}}
+2. Register the Serena MCP server. Detect which host you are running on and use the matching path:
+   - Claude Code: append to .mcp.json (or ~/.claude/mcp.json for global) under mcpServers:
+     {"mcpServers":{"serena":{"command":"uvx","args":["--from","git+https://github.com/oraios/serena","serena","start-mcp-server"]}}}
+   - Codex CLI: run shell command  codex mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+   - Gemini CLI: append the equivalent block to its MCP config (refer to Gemini CLI docs).
 3. Detect source files in the project. Map extensions to Serena enum values:
    .java→java  .vue→vue  .ts/.tsx/.js/.jsx→typescript  .py→python  .html→html
    (.css/.scss→scss  .go→go  .rs→rust  .cs→csharp  .kt→kotlin  .cpp/.c→cpp  etc.)
    NEVER use js/javascript/react/jsx/tsx/css as enum values — they are not valid.
 4. Write .serena/project.yml with project_name=<repo dir name> and languages=<detected list>.
-5. Append this block to CLAUDE.md (Claude Code) or AGENTS.md (Codex/Gemini CLI) — append to whichever exists; create CLAUDE.md if neither does. Skip if a BEGIN serena-mcp-quickstart marker is already present:
+5. Append this block to CLAUDE.md (Claude Code) and/or AGENTS.md (Codex/Gemini CLI) — append to whichever exists in the project; create the file matching the active host if neither does. Skip if a BEGIN serena-mcp-quickstart marker is already present:
    <!-- BEGIN serena-mcp-quickstart -->
    ## Tooling
 
    - When `mcp__serena__*` tools are loaded, prefer them for code search and symbol-level edits over `Grep`/`Read`/`Edit`. Fall back silently if absent.
    <!-- END serena-mcp-quickstart -->
-6. Tell me to restart Claude Code, then run mcp__serena__check_onboarding_performed to verify.
+6. Tell me to restart the CLI, then run mcp__serena__check_onboarding_performed to verify.
 ```
 
 ---
 
 ## What you get
 
-After install, every Claude Code session in this project gains:
+After install, every Claude Code or Codex CLI session in this project gains:
 
 - `mcp__serena__find_symbol` — jump to a definition by name across services
 - `mcp__serena__find_referencing_symbols` — true LSP references, not grep
@@ -99,6 +119,8 @@ The bash installer covers the cold-start. The bundled `~/.claude/skills/serena-m
 - Setting up a new repo from scratch via natural-language prompt
 
 Once installed, just say to Claude Code: *"add Go to my Serena project.yml"* or *"why is my vue LSP failing"* — the skill fires automatically.
+
+For Codex CLI users, the skill file isn't auto-loaded by the host (Codex doesn't have a Skills mechanism), but the same SKILL.md serves as a copy-paste reference any time you need to extend `.serena/project.yml` or troubleshoot.
 
 ---
 

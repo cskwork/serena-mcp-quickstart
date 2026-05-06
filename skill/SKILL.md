@@ -93,15 +93,17 @@ For the canonical, current enum list, see https://github.com/oraios/serena/blob/
 
 ### Step 2 — Register the MCP server
 
-Pick the correct config target:
+Pick the correct config target based on the active host:
 
-| Scope | File |
-|-------|------|
-| Single project | `<project>/.mcp.json` |
-| All Claude Code projects | `~/.claude/mcp.json` |
-| Already in Claude Code marketplace | nothing — already registered as plugin |
+| Host | Scope | File / Command |
+|------|-------|----------------|
+| Claude Code | single project | `<project>/.mcp.json` |
+| Claude Code | all projects | `~/.claude/mcp.json` |
+| Claude Code | marketplace plugin | nothing — already registered as plugin |
+| Codex CLI | global (only mode supported) | `codex mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server` |
+| Gemini CLI | per its own config | refer to Gemini CLI docs |
 
-Append (do not overwrite):
+For Claude Code, append (do not overwrite) under `mcpServers`:
 
 ```json
 {
@@ -115,6 +117,8 @@ Append (do not overwrite):
 ```
 
 If the file exists, merge under `mcpServers` rather than replacing the whole document.
+
+For Codex CLI, prefer the `codex mcp add` command over hand-editing `~/.codex/config.toml` — it does schema-safe TOML editing and won't disturb existing entries. Codex has no project-scoped MCP equivalent; registration is always global, and per-project activation is done at runtime via `mcp__serena__activate_project`.
 
 ### Step 3 — Generate `.serena/project.yml`
 
@@ -143,7 +147,11 @@ This is what teaches future agents in this project to actually use Serena instea
 
 ### Step 5 — Verify
 
-Restart the MCP host (Claude Code: `/mcp` then reconnect, or restart the CLI). Then run:
+Restart the MCP host:
+- Claude Code — run `/mcp` then reconnect, or restart the CLI
+- Codex CLI — exit and restart `codex` so it spawns a fresh `serena start-mcp-server` process
+
+Then run:
 
 ```
 mcp__serena__check_onboarding_performed

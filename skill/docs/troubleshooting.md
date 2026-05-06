@@ -61,6 +61,12 @@ mcp__serena__activate_project   project="/absolute/path/to/repo"
 
 Once activated, Serena remembers the project in `~/.serena/serena_config.yml` under `projects:`.
 
+### Codex CLI: "Codex MCP server not connecting"
+- Check registration: `codex mcp get serena` — must show `enabled: true` and `status: enabled`.
+- If status shows disabled: hand-edit `~/.codex/config.toml` to remove `enabled = false` from the `[mcp_servers.serena]` table, or run `codex mcp remove serena && codex mcp add serena -- uvx ...`.
+- Codex has no project-scope MCP — every Codex session uses the global config. To activate a specific project at runtime: `mcp__serena__activate_project   project="/abs/path"`.
+- `codex exec` can complain about untrusted directory ("Not inside a trusted directory and --skip-git-repo-check was not specified"). This blocks shell-out, NOT MCP launch — Serena still spawns. Add the path to `[projects."<path>"]` with `trust_level = "trusted"` if you need shell tools too.
+
 ### Multiple Serena instances clash
 Closing Claude Code does not always shut down stale `uvx` processes. Kill them manually:
 

@@ -57,3 +57,19 @@ jobs:
           grep -q '"serena"' /tmp/fakeproject/.mcp.json
           grep -q 'project_name: "fakeproject"' /tmp/fakeproject/.serena/project.yml
           grep -q '^  - typescript$' /tmp/fakeproject/.serena/project.yml
+
+      - name: re-run is idempotent
+        run: |
+          bash "${GITHUB_WORKSPACE}/install.sh" --project-dir /tmp/fakeproject
+          # If a second run mutated project.yml, the warn log would show; just re-assert.
+          grep -q 'project_name: "fakeproject"' /tmp/fakeproject/.serena/project.yml
+
+      - name: --codex-only does not create Claude artifacts
+        run: |
+          # Codex CLI is not installed in CI; expect a warn but no Claude artifacts in this dir.
+          mkdir -p /tmp/codexproject
+          bash "${GITHUB_WORKSPACE}/install.sh" --project-dir /tmp/codexproject --codex-only || true
+          test ! -f /tmp/codexproject/.mcp.json
+          test -f /tmp/codexproject/.serena/project.yml
+          test -f /tmp/codexproject/AGENTS.md
+          grep -q "BEGIN serena-mcp-quickstart" /tmp/codexproject/AGENTS.md

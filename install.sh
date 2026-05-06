@@ -122,7 +122,7 @@ if [[ "${WITH_CODEX}" != "no" ]]; then
   elif codex mcp get serena >/dev/null 2>&1; then
     info "Codex: serena already registered (use 'codex mcp remove serena' to re-add)"
   else
-    cp ~/.codex/config.toml ~/.codex/config.toml.bak-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
+    cp ~/.codex/config.toml "${HOME}/.codex/config.toml.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
     codex mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server >/dev/null
     info "Codex: registered in ~/.codex/config.toml"
   fi

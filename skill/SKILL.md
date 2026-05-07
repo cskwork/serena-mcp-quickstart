@@ -38,12 +38,27 @@ Missing tool → recover with:
 
 ### Step 1 — Detect project languages
 
-Inspect the repo (don't trust assumptions):
+Inspect the repo (don't trust assumptions). Prefer `fd` when available, fall back to `find` (which is always present):
 
 ```bash
-fd -e java -e kt -e vue -e ts -e tsx -e jsx -e js -e py -e html . --max-depth 6 \
-  | awk -F. '{print $NF}' | sort -u
+# fd variant (faster, but not installed by default on macOS / many Linux distros)
+fd -e java -e kt -e vue -e ts -e tsx -e jsx -e js -e py -e html -e mjs -e scss -e css \
+   --max-depth 10 -E node_modules -E build -E dist -E .gradle -E target . \
+  | awk -F. '{print $NF}' | sort | uniq -c | sort -rn
+
+# find fallback (POSIX, always works) — also recommended for monorepos where
+# top-level depth=6 misses Java packages buried under `service/src/main/java/...`
+find . \( -path '*/node_modules' -o -path '*/.git' -o -path '*/build' \
+       -o -path '*/dist' -o -path '*/.gradle' -o -path '*/target' \
+       -o -path '*/.venv' \) -prune -o -type f \
+       \( -name '*.java' -o -name '*.kt' -o -name '*.vue' -o -name '*.ts' \
+       -o -name '*.tsx' -o -name '*.jsx' -o -name '*.js' -o -name '*.mjs' \
+       -o -name '*.py' -o -name '*.html' -o -name '*.scss' -o -name '*.css' \) \
+       -print 2>/dev/null \
+  | awk -F. '{print $NF}' | sort | uniq -c | sort -rn
 ```
+
+Pick the `find` variant for unfamiliar / multi-service monorepos — `fd --max-depth 6` will miss Java sources that live ~8 directories deep (e.g. `aidt-service-foo/src/main/java/com/org/...`).
 
 Map extensions to Serena enum values. **Only enum values from the table below are legal** — anything else makes `start-mcp-server` crash on startup.
 
@@ -93,17 +108,17 @@ For the canonical, current enum list, see https://github.com/oraios/serena/blob/
 
 ### Step 2 — Register the MCP server
 
-Pick the correct config target based on the active host:
+Always go through `claude mcp add` (or `codex mcp add`). Do **not** hand-write JSON — Claude Code 2.x reads user-scope MCP from `~/.claude.json` (the bare file), not `~/.claude/mcp.json` (the directory), and the CLI knows the right target.
 
-| Host | Scope | File / Command |
-|------|-------|----------------|
-| Claude Code | single project | `<project>/.mcp.json` |
-| Claude Code | all projects | `~/.claude/mcp.json` |
+| Host | Scope | Command |
+|------|-------|---------|
+| Claude Code | single project | `cd <project> && claude mcp add serena --scope project -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server` (writes `<project>/.mcp.json`) |
+| Claude Code | all projects | `claude mcp add serena --scope user -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server` (writes `~/.claude.json`) |
 | Claude Code | marketplace plugin | nothing — already registered as plugin |
 | Codex CLI | global (only mode supported) | `codex mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server` |
 | Gemini CLI | per its own config | refer to Gemini CLI docs |
 
-For Claude Code, append (do not overwrite) under `mcpServers`:
+The MCP server definition the CLI installs is equivalent to the JSON snippet below — kept here for reference, not for hand-editing:
 
 ```json
 {
@@ -116,7 +131,7 @@ For Claude Code, append (do not overwrite) under `mcpServers`:
 }
 ```
 
-If the file exists, merge under `mcpServers` rather than replacing the whole document.
+> **WARNING:** A common stale instruction (and the previous version of this skill) tells you to write `~/.claude/mcp.json`. That file is silently ignored by Claude Code 2.x — `claude mcp list` will not show servers placed there, and the `mcp__serena__*` tools never load. If you find yourself debugging a "MCP installed but tools never load" issue, run `claude mcp get serena` and verify the registration actually landed in `~/.claude.json` (no inner `claude/` directory).
 
 For Codex CLI, prefer the `codex mcp add` command over hand-editing `~/.codex/config.toml` — it does schema-safe TOML editing and won't disturb existing entries. Codex has no project-scoped MCP equivalent; registration is always global, and per-project activation is done at runtime via `mcp__serena__activate_project`.
 
@@ -148,20 +163,25 @@ This is what teaches future agents in this project to actually use Serena instea
 ### Step 5 — Verify
 
 Restart the MCP host:
-- Claude Code — run `/mcp` then reconnect, or restart the CLI
+- Claude Code — run `/mcp` then reconnect, or restart the CLI. Confirm with `claude mcp list` — `serena` should show `✓ Connected`. If it does not appear at all, your registration landed in the wrong file (see the WARNING in Step 2).
 - Codex CLI — exit and restart `codex` so it spawns a fresh `serena start-mcp-server` process
 
-Then run:
+In Claude Code 2.x, MCP tools are exposed as **deferred tools**: their schemas are not loaded into the prompt until you fetch them. Before calling a Serena tool for the first time in a session, run:
 
 ```
+ToolSearch  query = "select:mcp__serena__activate_project,mcp__serena__check_onboarding_performed"
+```
+
+Then, on the very first install, **call `activate_project` before `check_onboarding_performed`** — otherwise `check_onboarding_performed` returns "No active project" because Serena has never been told about this repo:
+
+```
+mcp__serena__activate_project           project = "<absolute path to repo root>"
 mcp__serena__check_onboarding_performed
 ```
 
-Expected: returns project metadata. If it errors with "no project active", run:
+After the first activation, Serena remembers the project; future sessions can call `check_onboarding_performed` directly.
 
-```
-mcp__serena__activate_project  with  project = "<absolute path to repo root>"
-```
+> **Heads-up:** the first time Serena activates a project, it rewrites `.serena/project.yml` to its canonical schema (full comments, every documented key). This is normal — your `project_name`, `languages`, and `ignored_paths` are preserved. Don't be surprised if a `git status` after first verification shows changes to `project.yml`.
 
 ## Common Failure Modes
 

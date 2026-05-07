@@ -4,12 +4,17 @@
 #   or:    bash install.sh [--project-dir /path/to/repo] [--global] [--codex] [--codex-only] [--no-permissions]
 #
 # What it does:
-#   1. Verifies prerequisites (uvx).
+#   1. Verifies prerequisites (uvx, and `claude` CLI when registering for Claude Code).
 #   2. Installs the Skill into ~/.claude/skills/serena-mcp-quickstart (skipped with --codex-only).
 #   3. Registers the Serena MCP server:
-#        - default:        .mcp.json (project) or ~/.claude/mcp.json (--global)  [Claude Code]
+#        - default:        `claude mcp add serena --scope project` (writes <project>/.mcp.json)
+#        - --global:       `claude mcp add serena --scope user`    (writes ~/.claude.json)
 #        - --codex:        ALSO registers in ~/.codex/config.toml via `codex mcp add`
 #        - --codex-only:   ONLY registers in ~/.codex/config.toml (skips Claude Code paths)
+#      NOTE: ~/.claude/mcp.json (with the directory) is NOT a Claude Code config location —
+#      Claude Code 2.x reads user-scope MCP servers from ~/.claude.json (the bare file).
+#      The earlier behaviour of writing to ~/.claude/mcp.json silently produced a non-working
+#      install; we now delegate to `claude mcp add` which always targets the right file.
 #   4. Generates .serena/project.yml from the bundled template (default 5-language preset).
 #   5. Appends a Tooling block to CLAUDE.md / AGENTS.md as appropriate.
 #   6. Adds the 32 mcp__serena__* tools to ~/.claude/settings.json permissions.allow
@@ -78,45 +83,32 @@ fi
 bold "[3/6] registering Serena MCP server"
 
 # --- Claude Code path (skipped when --codex-only) -----------------------------
+# We delegate to `claude mcp add` rather than hand-editing JSON. Reasons:
+#   - Claude Code 2.x reads user-scope MCP from ~/.claude.json (not ~/.claude/mcp.json).
+#     `claude mcp add --scope user` writes to the file CC actually reads.
+#   - For project scope, the CLI writes <project>/.mcp.json with the canonical schema
+#     and is idempotent (refuses to clobber unless we explicitly remove first).
 if [[ "${WITH_CODEX}" != "only" ]]; then
-  if [[ "${SCOPE}" == "global" ]]; then
-    MCP_FILE="${HOME}/.claude/mcp.json"
-  else
-    MCP_FILE="${PROJECT_DIR}/.mcp.json"
+  if ! command -v claude >/dev/null 2>&1; then
+    fail "claude CLI not on PATH — required to register MCP for Claude Code. Install Claude Code or rerun with --codex-only."
   fi
-  mkdir -p "$(dirname "${MCP_FILE}")"
 
-  # MCP snippet is embedded so --codex-only can also use it without the skill copy step
-  SNIPPET_FILE="$(mktemp)"
-  cat > "${SNIPPET_FILE}" <<'JSON'
-{
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
-    }
-  }
-}
-JSON
+  CLAUDE_SCOPE_FLAG="project"
+  [[ "${SCOPE}" == "global" ]] && CLAUDE_SCOPE_FLAG="user"
 
-  if command -v jq >/dev/null 2>&1; then
-    if [[ -f "${MCP_FILE}" ]]; then
-      jq -s '.[0] * .[1]' "${MCP_FILE}" "${SNIPPET_FILE}" > "${MCP_FILE}.tmp" && mv "${MCP_FILE}.tmp" "${MCP_FILE}"
+  if claude mcp get serena >/dev/null 2>&1; then
+    info "Claude Code: serena already registered (use 'claude mcp remove serena' to re-add)"
+  else
+    # `claude mcp add --scope project` writes ./.mcp.json relative to the cwd, so cd first.
+    ( cd "${PROJECT_DIR}" && \
+      claude mcp add serena --scope "${CLAUDE_SCOPE_FLAG}" -- \
+        uvx --from git+https://github.com/oraios/serena serena start-mcp-server >/dev/null )
+    if [[ "${CLAUDE_SCOPE_FLAG}" == "user" ]]; then
+      info "Claude Code: registered in ~/.claude.json (scope: user)"
     else
-      cp "${SNIPPET_FILE}" "${MCP_FILE}"
+      info "Claude Code: registered in ${PROJECT_DIR}/.mcp.json (scope: project)"
     fi
-  else
-    python3 - "${MCP_FILE}" "${SNIPPET_FILE}" <<'PY'
-import json, os, sys
-target, snippet = sys.argv[1], sys.argv[2]
-base = json.load(open(target)) if os.path.exists(target) else {}
-add  = json.load(open(snippet))
-base.setdefault("mcpServers", {}).update(add.get("mcpServers", {}))
-json.dump(base, open(target, "w"), indent=2)
-PY
   fi
-  rm -f "${SNIPPET_FILE}"
-  info "Claude Code: merged into ${MCP_FILE} (scope: ${SCOPE})"
 fi
 
 # --- Codex CLI path (--codex or --codex-only) ---------------------------------
@@ -239,21 +231,34 @@ echo "Next steps:"
 case "${WITH_CODEX}" in
   only)
     echo "  1. Restart Codex CLI so it spawns the new MCP server."
-    echo "  2. In Codex, run:    mcp__serena__activate_project  project=\"${PROJECT_DIR}\"" ;;
+    echo "  2. In Codex, run:    mcp__serena__activate_project  project=\"${PROJECT_DIR}\""
+    echo "  3. Then verify:      mcp__serena__check_onboarding_performed" ;;
   yes)
     echo "  1. Restart Claude Code AND Codex CLI so each picks up the new MCP server."
-    echo "  2. In either CLI:    mcp__serena__check_onboarding_performed"
-    echo "                       (if it errors)  mcp__serena__activate_project  project=\"${PROJECT_DIR}\"" ;;
+    echo "  2. (Claude Code 2.x only) Load the deferred MCP tool schemas first:"
+    echo "        ToolSearch query=\"select:mcp__serena__activate_project,mcp__serena__check_onboarding_performed\""
+    echo "  3. Seed the project (required on first run):"
+    echo "        mcp__serena__activate_project  project=\"${PROJECT_DIR}\""
+    echo "  4. Verify:           mcp__serena__check_onboarding_performed" ;;
   *)
     echo "  1. Restart Claude Code so it picks up the new MCP server."
-    echo "  2. In Claude, run:    mcp__serena__check_onboarding_performed"
-    echo "                        (if it errors)  mcp__serena__activate_project  project=\"${PROJECT_DIR}\"" ;;
+    echo "     (sanity check: 'claude mcp list' should show  serena: ✓ Connected)"
+    echo "  2. Load the deferred MCP tool schemas first (Claude Code 2.x):"
+    echo "        ToolSearch query=\"select:mcp__serena__activate_project,mcp__serena__check_onboarding_performed\""
+    echo "  3. Seed the project (required on first run — otherwise check_onboarding_performed reports 'No active project'):"
+    echo "        mcp__serena__activate_project  project=\"${PROJECT_DIR}\""
+    echo "  4. Verify:           mcp__serena__check_onboarding_performed" ;;
 esac
-echo "  3. Tweak .serena/project.yml — uncomment opt-in languages as needed."
+echo "  5. Tweak .serena/project.yml — uncomment opt-in languages as needed."
+echo "     Note: the first activation rewrites this file to Serena's canonical schema. Your project_name, languages, and ignored_paths are preserved."
 echo ""
 if [[ "${WITH_CODEX}" != "only" ]]; then
   echo "Skill installed at: ${SKILL_DIR}"
-  [[ -n "${MCP_FILE:-}" ]] && echo "Claude MCP config:  ${MCP_FILE}"
+  if [[ "${SCOPE}" == "global" ]]; then
+    echo "Claude MCP config:  ${HOME}/.claude.json (user scope)"
+  else
+    echo "Claude MCP config:  ${PROJECT_DIR}/.mcp.json (project scope)"
+  fi
 fi
 if [[ "${WITH_CODEX}" != "no" ]]; then
   echo "Codex MCP config:   ${HOME}/.codex/config.toml"

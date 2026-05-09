@@ -96,7 +96,12 @@ if [[ "${WITH_CODEX}" != "only" ]]; then
   CLAUDE_SCOPE_FLAG="project"
   [[ "${SCOPE}" == "global" ]] && CLAUDE_SCOPE_FLAG="user"
 
-  if claude mcp get serena >/dev/null 2>&1; then
+  # `claude mcp get` is cwd-sensitive when looking up project-scoped servers,
+  # so the existence check must run from the same directory the `add` writes
+  # to. Otherwise re-running install.sh against the same project sees an
+  # empty result, falls through to `add`, and `add` fails with "already
+  # exists" — breaking idempotency.
+  if ( cd "${PROJECT_DIR}" && claude mcp get serena >/dev/null 2>&1 ); then
     info "Claude Code: serena already registered (use 'claude mcp remove serena' to re-add)"
   else
     # `claude mcp add --scope project` writes ./.mcp.json relative to the cwd, so cd first.

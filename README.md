@@ -36,8 +36,9 @@ Run from your project root. The installer will:
 
 1. Install [`uv`](https://astral.sh/uv) if missing.
 2. Drop the Skill into `~/.claude/skills/serena-mcp-quickstart/` (skipped with `--codex-only`).
-3. Register the Serena MCP server:
-   - default → `.mcp.json` (project) or `~/.claude/mcp.json` (with `--global`)
+3. Register the Serena MCP server via `claude mcp add` (always — never hand-edits JSON):
+   - default → `claude mcp add serena --scope project` (writes `<project>/.mcp.json`)
+   - `--global` → `claude mcp add serena --scope user` (writes `~/.claude.json`, the file Claude Code 2.x actually reads for user-scope MCP)
    - `--codex` → also runs `codex mcp add serena ...` to register in `~/.codex/config.toml`
    - `--codex-only` → only the Codex registration
 4. Generate `.serena/project.yml` pre-filled with the 5-language preset.
@@ -55,10 +56,11 @@ Install Serena MCP for this project using https://github.com/cskwork/serena-mcp-
 
 Steps:
 1. Verify uvx is installed; if not, install uv via the official script.
-2. Register the Serena MCP server. Detect which host you are running on and use the matching path:
-   - Claude Code: append to .mcp.json (or ~/.claude/mcp.json for global) under mcpServers:
-     {"mcpServers":{"serena":{"command":"uvx","args":["--from","git+https://github.com/oraios/serena","serena","start-mcp-server"]}}}
-   - Codex CLI: run shell command  codex mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+2. Register the Serena MCP server. Detect which host you are running on and use the matching command:
+   - Claude Code (project scope, recommended):  cd <project> && claude mcp add serena --scope project -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+   - Claude Code (user scope, all projects):     claude mcp add serena --scope user    -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
+     IMPORTANT: do NOT hand-write ~/.claude/mcp.json — Claude Code 2.x ignores that path. The CLI writes to <project>/.mcp.json or ~/.claude.json depending on scope.
+   - Codex CLI:  codex mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server
    - Gemini CLI: append the equivalent block to its MCP config (refer to Gemini CLI docs).
 3. Detect source files in the project. Map extensions to Serena enum values:
    .java→java  .vue→vue  .ts/.tsx/.js/.jsx→typescript  .py→python  .html→html
@@ -71,8 +73,13 @@ Steps:
 
    - When `mcp__serena__*` tools are loaded, prefer them for code search and symbol-level edits over `Grep`/`Read`/`Edit`. Fall back silently if absent.
    <!-- END serena-mcp-quickstart -->
-6. Tell me to restart the CLI, then run mcp__serena__check_onboarding_performed to verify.
+6. Tell me to restart the CLI, then verify:
+   - In Claude Code 2.x, MCP tools are exposed as deferred tools — first call ToolSearch with query='select:mcp__serena__check_onboarding_performed,mcp__serena__activate_project' to load their schemas.
+   - Call mcp__serena__activate_project with project=<absolute project path>. (On the very first run, check_onboarding_performed alone returns "No active project" until activate_project has registered it.)
+   - Call mcp__serena__check_onboarding_performed to confirm the project is active.
 ```
+
+> Heads-up: the first time Serena activates a project, it rewrites `.serena/project.yml` to its canonical schema (full comments, all keys). This is normal — your `project_name`, `languages`, and `ignored_paths` are preserved.
 
 ---
 

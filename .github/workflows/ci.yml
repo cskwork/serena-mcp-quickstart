@@ -43,6 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: install claude CLI
+        # install.sh delegates MCP registration to `claude mcp add`, which is a
+        # local config-file edit and does not require Anthropic credentials.
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: install via local script
         run: |
           mkdir -p /tmp/fakeproject
